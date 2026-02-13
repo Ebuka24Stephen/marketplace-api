@@ -1,4 +1,4 @@
-A Django REST Framework backend for an e-commerce parts catalog with products, categories, product images, and a session-based shopping cart.
+A Django REST Framework backend for an e-commerce parts catalog with products, categories, product images, and a session-based shopping cart with payment integration gateway(e.g paystack or stripe). 
 
 ## Features
 - Product & Category API (list/detail)
@@ -7,6 +7,9 @@ A Django REST Framework backend for an e-commerce parts catalog with products, c
 -  Add to cart, update quantity, delete cart item
 -  Stock checks to prevent over-ordering
 -  Django Admin for managing store data
+- Redis for caching products
+- Celery for Aynchronous operations
+
 
 ---
 
@@ -15,3 +18,5 @@ A Django REST Framework backend for an e-commerce parts catalog with products, c
 - Django
 - Django REST Framework
 - SQLite (dev) / PostgreSQL (prod-ready)
+- Redis
+- Celery
