@@ -6,8 +6,6 @@ from django.db.models import F
 from .models import Cart, CartItem
 from store.models import Product
 
-
-
 class CartListApiView(APIView):
     permission_classes = []
     def get(self, request, product_id, cart_id=None):
@@ -62,15 +60,12 @@ class CartItemQuantityView(APIView):
 
 class CartItemDelete(APIView):
     permission_classes = []
-
     def delete(self, request, item_id):
         cart_id = request.session.get("cart_id")
         if not cart_id:
             return Response({"error": "No active cart"}, status=status.HTTP_400_BAD_REQUEST)
-
         item = CartItem.objects.filter(id=item_id, cart_id=cart_id).first()
         if not item:
             return Response({"error": "Item not found"}, status=status.HTTP_404_NOT_FOUND)
-
         item.delete()
         return Response({"deleted": True, "id": item_id}, status=status.HTTP_200_OK)
