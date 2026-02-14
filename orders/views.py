@@ -25,7 +25,6 @@ class OrderCreateView(APIView):
         )
         if not cart_items.exists():
             raise ValidationError({"error": "Cart is empty"})
-
         serializer = OrderSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         order = serializer.save(user=request.user)
@@ -42,7 +41,6 @@ class OrderCreateView(APIView):
                 price=item.product.price,   
                 quantity=item.quantity
             )
-
         cart_items.delete()
         cart.delete()
         request.session.pop("cart_id", None)
