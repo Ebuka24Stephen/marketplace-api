@@ -43,13 +43,9 @@ class ProductApiView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class ProductAdminApiView(APIView):
-    """
-    Admin create/update/delete product.
-    Uses ProductSerializer with `category_id` write-only field.
-    """
+class ProductAdminApiView(APIView):   
     permission_classes = [IsAdminUser]
-
+    
     def post(self, request):
         serializer = ProductSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

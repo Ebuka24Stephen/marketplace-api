@@ -9,50 +9,46 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db import transaction
 from django.db.models import F
+from rest_framework.exceptions import ValidationError
 
 class OrderCreateView(APIView):
     permission_classes = [IsAuthenticated]
+
     @transaction.atomic
     def post(self, request):
         cart_id = request.session.get("cart_id")
         if not cart_id:
-            return Response({"error": "No active cart"}, status=status.HTTP_400_BAD_REQUEST)
-
+            raise ValidationError({"error": "No active cart"})
         cart = get_object_or_404(Cart, id=cart_id)
         cart_items = (
             CartItem.objects.select_related("product").select_for_update().filter(cart=cart)
         )
         if not cart_items.exists():
-            return Response({"error": "Cart is empty"}, status=status.HTTP_400_BAD_REQUEST)
+            raise ValidationError({"error": "Cart is empty"})
+
         serializer = OrderSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         order = serializer.save(user=request.user)
-        total = 0
         for item in cart_items:
-            product = Product.objects.select_for_update().get(id=item.product_id)
-            updated = Product.objects.filter(id=product.id, stock__gte=item.quantity).update(stock=F("stock") - item.quantity)
+            updated = Product.objects.filter(
+                id=item.product_id,
+                stock__gte=item.quantity
+            ).update(stock=F("stock") - item.quantity)
             if updated == 0:
-                return Response(
-                    {"error": f"Not enough stock for {product.name}"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            line_total = product.price * item.quantity
-            total += line_total
-            OrderItem.objects.create(   
+                raise ValidationError({"error": f"Not enough stock for {item.product.name}"})
+            OrderItem.objects.create(
+                order=order,
                 product=item.product,
-                price=product.price,
-                quantity=item.quantity,
-                order=order
-            )            
-        order.total = total
-        order.save(update_fields=["total"])
+                price=item.product.price,   
+                quantity=item.quantity
+            )
 
         cart_items.delete()
         cart.delete()
         request.session.pop("cart_id", None)
 
         return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+
     
 class OrderListView(APIView):
     permission_classes = [IsAuthenticated]

@@ -9,14 +9,13 @@ class Order(models.Model):
     email = models.EmailField()
     address = models.CharField(max_length=150)
     city = models.CharField(max_length=70)
-
-    total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"Order {self.id}"
+    def get_sum_total(self):
+        return sum(item.get_cost() for item in self.items.all())
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, related_name="items", on_delete=models.CASCADE)
