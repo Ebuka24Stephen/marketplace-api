@@ -1,11 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import User
 from store.models import Product
-from django.utils import timezone
-from django.conf import settings
 
 class Order(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="orders")
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="orders")
+
     full_name = models.CharField(max_length=70)
     email = models.EmailField()
     address = models.CharField(max_length=150)
