@@ -40,6 +40,10 @@ INSTALLED_APPS = [
     'users',
     'store',
     'phonenumber_field',
+    'carts',
+    'orders',
+    'payments',
+    
 ]
 
 MIDDLEWARE = [
@@ -134,3 +138,32 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000
 AUTH_USER_MODEL='users.User'
 PAYSTACK_SECRET_KEY = config("PAYSTACK_SECRET_KEY")
 PAYSTACK_PUBLIC_KEY = config("PAYSTACK_PUBLIC_KEY")
+
+# Cache Configuration - Redis as Primary Cache
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://127.0.0.1:6379/1',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        }
+    }
+}
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+}
+
+
+from datetime import timedelta
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=2),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": False,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
+}
+

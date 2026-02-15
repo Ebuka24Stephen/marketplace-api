@@ -6,24 +6,30 @@ from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.parsers import MultiPartParser, FormParser
 
 from .models import Category, Product, ProductImage
-from .serializers import CategorySerializer, ProductSerializer, ProductImageSerializer
-
+from .serializers import CategorySerializer, ProductSerializer, ProductImageSerializer, ProductListSerializer
+from django.core.cache import cache
 
 class CategoryListView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
+        cache_key = "categories_list"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            print(f"[CACHE HIT] {cache_key}")
+            return Response(cached, status=status.HTTP_200_OK)
+        print(f"[CACHE MISS] {cache_key}")
         qs = Category.objects.all().order_by("name")
-        serializer = CategorySerializer(qs, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        data = CategorySerializer(qs, many=True).data
+        cache.set(cache_key, data, timeout=60 * 60)
+        print(f"[CACHE SET] ok={cache.get(cache_key) is not None}")
+        return Response(data, status=status.HTTP_200_OK)
 
 
 class ProductApiView(APIView):
     permission_classes = [AllowAny]
-
     def get(self, request, cat_slug, product_slug=None):
         category = get_object_or_404(Category, slug=cat_slug)
-
         if product_slug:
             product = get_object_or_404(
                 Product.objects.select_related("category"),
@@ -42,6 +48,19 @@ class ProductApiView(APIView):
         serializer = ProductSerializer(qs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+
+class ProductListApiView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        qs = (
+            Product.objects.select_related("category")
+            .filter(is_active=True)
+            .order_by("-created_at")
+        )
+        serializer = ProductListSerializer(qs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
 
 class ProductAdminApiView(APIView):   
     permission_classes = [IsAdminUser]
