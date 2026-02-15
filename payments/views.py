@@ -11,7 +11,6 @@ from .models import Payment
 import uuid
 from django.conf import settings
 
-<<<<<<< HEAD
 PAYSTACK_VERIFY_URL = "https://api.paystack.co/transaction/verify/{}"
 paystack_url = "https://api.paystack.co/transaction/initialize"
 

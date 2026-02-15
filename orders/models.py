@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from store.models import Product
-
+from django.utils import timezone
 class Order(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="orders")
 
