@@ -23,6 +23,16 @@ A Django REST Framework backend for an e-commerce parts catalog with products, c
 
 ---
 
+## Project URLs
+
+- **Local Development**: `http://localhost:8000`
+- **Admin Panel**: `http://localhost:8000/admin`
+- **API Base**: `http://localhost:8000/api`
+- **Repository**: [GitHub - Marketplace API](https://github.com/Ebuka24Stephen/marketplace_api)
+- **Live Demo**: (Coming soon)
+
+---
+
 ## API Documentation
 
 ### Base URL
