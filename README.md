@@ -22,9 +22,8 @@ A Django REST Framework backend for an e-commerce parts catalog with products, c
 - Celery
 
 ---
-
 ## Project URLs
-
+- **Project url**: 'https://roadmap.sh/projects/ecommerce-api'
 - **Local Development**: `http://localhost:8000`
 - **Admin Panel**: `http://localhost:8000/admin`
 - **API Base**: `http://localhost:8000/api`
