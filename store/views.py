@@ -8,6 +8,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from .models import Category, Product, ProductImage
 from .serializers import CategorySerializer, ProductSerializer, ProductImageSerializer, ProductListSerializer
 from django.core.cache import cache
+import time 
 
 class CategoryListView(APIView):
     permission_classes = [AllowAny]
@@ -29,6 +30,12 @@ class CategoryListView(APIView):
 class ProductApiView(APIView):
     permission_classes = [AllowAny]
     def get(self, request, cat_slug, product_slug=None):
+        
+        cache_key = f"product_{cat_slug}_{product_slug or 'list'}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            print(f"[CACHE HIT] {cache_key}")
+            return Response(cached, status=status.HTTP_200_OK)
         category = get_object_or_404(Category, slug=cat_slug)
         if product_slug:
             product = get_object_or_404(
@@ -37,28 +44,41 @@ class ProductApiView(APIView):
                 category=category,
                 is_active=True,
             )
-            serializer = ProductSerializer(product)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            data = ProductSerializer(product).data
+            cache.set(cache_key, data, timeout=60 * 60)
+            print(f"[CACHE SET] ok={cache.get(cache_key) is not None}")
+            return Response(data, status=status.HTTP_200_OK)
 
         qs = (
             Product.objects.select_related("category")
             .filter(is_active=True, category=category)
             .order_by("-created_at")
         )
-        serializer = ProductSerializer(qs, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        data = ProductSerializer(qs, many=True).data
+        cache.set(cache_key, data, timeout=60 * 60)
+        print(f"[CACHE SET] ok={cache.get(cache_key) is not None}")
+
+        return Response(data, status=status.HTTP_200_OK)
 
 
 class ProductListApiView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
+        cache_key = "products_list"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            print(f"[CACHE HIT] {cache_key}")
+            return Response(cached, status=status.HTTP_200_OK)
+        print(f"[CACHE MISS] {cache_key}")
         qs = (
             Product.objects.select_related("category")
             .filter(is_active=True)
             .order_by("-created_at")
         )
         serializer = ProductListSerializer(qs, many=True)
+        cache.set(cache_key, serializer.data, timeout=60 * 60)
+        print(f"[CACHE SET] ok={cache.get(cache_key) is not None}")
         return Response(serializer.data, status=status.HTTP_200_OK)
     
 
