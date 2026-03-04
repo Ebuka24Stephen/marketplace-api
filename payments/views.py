@@ -7,9 +7,13 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from orders.models import Order, OrderItem
-from .models import Payment
+from .models import Payment, Refund
 import uuid
 from django.conf import settings
+from .serializers import RefundSerializer
+
+
+
 
 PAYSTACK_VERIFY_URL = "https://api.paystack.co/transaction/verify/{}"
 paystack_url = "https://api.paystack.co/transaction/initialize"
@@ -89,3 +93,46 @@ class VerifyPaymentView(APIView):
             return Response({"detail": "Payment verified and order marked as paid."}, status=status.HTTP_200_OK)
         else:
             return Response({"detail": "Payment verification failed.", "paystack": data}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class CreateRefundView(APIView):
+    permission_classes = [IsAuthenticated]
+    PAYSTACK_REFUND_URL = "https://api.paystack.co/refund"
+    def post(self, request, order_id):
+        order = get_object_or_404(Order, id=order_id)
+        payment = get_object_or_404(Payment, order=order, user=request.user)
+        c_reason = request.data.get("customer_reason", "").strip()
+        m_reason = request.data.get("merchant_reason", "").strip()
+
+        refund, created = Refund.objects.get_or_create(
+            order=order,
+            payment=payment,
+            defaults={
+                "customer_reason": c_reason,
+                "merchant_reason": m_reason,
+                "amount": payment.amount,
+            }
+        )
+        if not created:
+            return Response({
+                "message": "Refund request already made"
+            })
+        payload = {
+            "amount":payment.amount,
+            "transaction": payment.reference,
+            "customer_note": refund.customer_reason,
+        
+        }
+        headers = {
+        "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+        "Content-Type": "application/json",
+    }
+        response = requests.post(self.PAYSTACK_REFUND_URL, json=payload, headers=headers)
+        if response.status_code in (200, 201):
+            return Response(response.json(), status=status.HTTP_200_OK)
+        else:
+            refund.delete()
+            return Response(response.json(), status=response.status_code)
+
+    
