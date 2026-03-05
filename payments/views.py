@@ -13,8 +13,6 @@ from django.conf import settings
 from .serializers import RefundSerializer
 
 
-
-
 PAYSTACK_VERIFY_URL = "https://api.paystack.co/transaction/verify/{}"
 paystack_url = "https://api.paystack.co/transaction/initialize"
 
@@ -63,7 +61,7 @@ def post(self, request, order_id):
     payment.save(update_fields=["access_code", "updated"])
     return Response(
         {
-            "reference": payment.reference,
+            "reference": payment.reference, 
             "access_code": payment.access_code,
             "authorization_url": data["data"]["authorization_url"],
         },
@@ -135,4 +133,13 @@ class CreateRefundView(APIView):
             refund.delete()
             return Response(response.json(), status=response.status_code)
 
-    
+        
+        
+    def get(self, request, refund_id=None):
+        if refund_id:
+            refund = Refund.objects.get(id=refund_id, payment__user=request.user)
+            serializer = RefundSerializer(refund)
+            return Response(serializer.data)
+        refund = Refund.objects.filter(payment__user=request.user)
+        serializer = RefundSerializer(refund, many=True)
+        return Response(serializer.data)
