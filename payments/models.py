@@ -1,6 +1,8 @@
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
+import uuid 
+from orders.models import Order
 
 class Payment(models.Model):
     class Status(models.TextChoices):
@@ -42,3 +44,22 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"{self.reference} - {self.status}"
+
+
+class RefundReason(models.TextChoices):
+    CUSTOMER_CANCELED = "CUSTOMER_CANCELED"
+    OUT_OF_STOCK = "OUT_OF_STOCK"
+    NOT_DELIVERED = "NOT_DELIVERED"
+    DAMAGED = "DAMAGED"
+    WRONG_ITEM = "WRONG_ITEM"
+    DUPLICATE = "DUPLICATE"
+    FRAUD = "FRAUD"
+    OTHER = "OTHER"
+
+class Refund(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name="refunds")
+    payment = models.ForeignKey(Payment, on_delete=models.PROTECT, related_name="refunds")
+    amount = models.PositiveIntegerField()  
+    customer_reason = models.CharField(max_length=200, choices=RefundReason.choices, default=RefundReason.WRONG_ITEM, null=True, blank=True)
+    merchant_reason = models.CharField(max_length=200, null=True, blank=True)
