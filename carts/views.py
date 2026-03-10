@@ -16,7 +16,7 @@ class AddtoCartApiView(APIView):
     def post(self, request):
         product_id = request.data.get("product_id")
         product = get_object_or_404(Product, id=product_id,is_active=True)
-        quantity = request.data.get("quantity")
+        quantity = int(request.data.get("quantity"))
         cart_id = request.session.get("cart_id")
         cart = Cart.objects.filter(id=cart_id).first() if cart_id else None
         if not cart:
@@ -26,18 +26,42 @@ class AddtoCartApiView(APIView):
         item, created = CartItem.objects.get_or_create(
             cart=cart,
             product=product,
-            quantity=quantity
+            defaults={"quantity":quantity}
         )
-        item.product.stock -=1
-        item.product.save()
-        item.save()
-    
         if not created:
-            item.quantity +=1 
+            item.quantity += quantity
             item.save()
+
+        product.stock -= quantity
+        product.save()
+
         return Response({"message": "Added to cart"}, status=status.HTTP_200_OK)
 
+class ReduceCartQuantityView(APIView):
+    permission_classes = [AllowAny]
 
+    def post(self, request, product_id):
+        cart_id = request.session.get("cart_id")
+
+        if not cart_id:
+            return Response({"error": "Cart not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        cart = get_object_or_404(Cart, id=cart_id)
+        item = get_object_or_404(CartItem, cart=cart, product_id=product_id)
+
+        item.quantity -= 1
+        item.product.stock += 1
+        item.product.save()
+
+        if item.quantity <= 0:
+            item.delete()
+            return Response({"message": "Item removed from cart"}, status=status.HTTP_200_OK)
+        item.save()
+        
+        return Response({
+            "message": "Quantity reduced",
+            "quantity": item.quantity
+        }, status=status.HTTP_200_OK)
 
 
 class CartListApiView(APIView):
@@ -53,13 +77,18 @@ class CartListApiView(APIView):
         items = CartItem.objects.filter(cart=cart)
         if not items.exists():
             return Response({"message": "Empty Cart"})
+        cart_total = sum(item.subtotal for item in items)
         data = [
             {
+                "product_id": item.product.id,
                 "product": item.product.name,
                 "price": item.product.price,
                 "quantity": item.quantity,
                 "total": item.subtotal,
                 
             } for item in items]
-        return Response(data, status=status.HTTP_200_OK)
+        return Response({
+            "items": data,
+            "cart_total": cart_total
+        })
 
