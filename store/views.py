@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.parsers import MultiPartParser, FormParser
-
+from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
 from .models import Category, Product, ProductImage
 from .serializers import CategorySerializer, ProductSerializer, ProductImageSerializer, ProductListSerializer
 from django.core.cache import cache
@@ -12,6 +12,8 @@ import time
 
 class CategoryListView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle]
+
 
     def get(self, request):
         cache_key = "categories_list"
@@ -29,6 +31,8 @@ class CategoryListView(APIView):
 
 class ProductApiView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle]
+
     def get(self, request, cat_slug, product_slug=None):
         
         cache_key = f"product_{cat_slug}_{product_slug or 'list'}"
@@ -63,6 +67,8 @@ class ProductApiView(APIView):
 
 class ProductListApiView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle]
+
 
     def get(self, request):
         cache_key = "products_list"
@@ -84,7 +90,7 @@ class ProductListApiView(APIView):
 
 class ProductAdminApiView(APIView):   
     permission_classes = [IsAdminUser]
-    
+
     def post(self, request):
         serializer = ProductSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -110,8 +116,7 @@ class ProductImageApiView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def get_product(self, cat_slug, product_slug):
-        category = get_object_or_404(Category, slug=cat_slug)
-        return get_object_or_404(Product, slug=product_slug, category=category)
+        return get_object_or_404(Product,slug=product_slug,category__slug=cat_slug)
 
     def get(self, request, cat_slug, product_slug):
         product = self.get_product(cat_slug, product_slug)
@@ -121,16 +126,24 @@ class ProductImageApiView(APIView):
 
     def post(self, request, cat_slug, product_slug):
         product = self.get_product(cat_slug, product_slug)
+        images = request.FILES.getlist("images")
+        if not images:
+            return Response({
+                "message": "No image was uploaded!"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        if len(images) > 10:
+            return Response({
+                "message": "Maximum 10 images allowed"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        product_images = []
+        for img in images:
+            image = ProductImage.objects.create(product=product, image=img)
+            product_images.append(image)
+        
+        serializer = ProductImageSerializer(product_images, many=True)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
 
-        serializer = ProductImageSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        image_obj = serializer.save(product=product)
-
-        return Response(
-            ProductImageSerializer(image_obj).data,
-            status=status.HTTP_201_CREATED
-        )
 
     def delete(self, request, cat_slug, product_slug, image_id):
         product = self.get_product(cat_slug, product_slug)
