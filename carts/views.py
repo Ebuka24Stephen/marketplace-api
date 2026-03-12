@@ -39,15 +39,14 @@ class AddtoCartApiView(APIView):
 
 class ReduceCartQuantityView(APIView):
     permission_classes = [AllowAny]
-
     def post(self, request, product_id):
+        product = Product.objects.get(id=product_id)
         cart_id = request.session.get("cart_id")
-
         if not cart_id:
             return Response({"error": "Cart not found"}, status=status.HTTP_404_NOT_FOUND)
 
         cart = get_object_or_404(Cart, id=cart_id)
-        item = get_object_or_404(CartItem, cart=cart, product_id=product_id)
+        item = get_object_or_404(CartItem, cart=cart, product=product)
 
         item.quantity -= 1
         item.product.stock += 1
@@ -92,3 +91,24 @@ class CartListApiView(APIView):
             "cart_total": cart_total
         })
 
+
+
+class CartDeleteProduct(APIView):
+    permission_classes = [AllowAny]
+
+    def delete(self, request, product_id):
+        product = get_object_or_404(Product, id=product_id)
+        cart_id = request.session.get("cart_id")
+        if not cart_id:
+            return Response({
+                "message": "empty cart"
+            })
+        cart = get_object_or_404(Cart, id=cart_id)
+        item = get_object_or_404(CartItem, cart=cart, product=product)
+        item.product.stock += item.quantity
+        item.product.save()
+        item.delete()
+        
+        return Response({
+            "message": "Product removed from cart",
+        }, status=status.HTTP_200_OK)
