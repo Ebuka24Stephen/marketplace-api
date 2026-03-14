@@ -15,7 +15,7 @@ class CartItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = CartItem
         fields = ['id', 'product', 'product_id', 'quantity', 'subtotal', 'added_at']
-        read_only_fields = ['id', 'subtotal', 'added_at']
+        read_only_fields = ['id', 'subtotal', 'added_at', 'product']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

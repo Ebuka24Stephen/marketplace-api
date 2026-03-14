@@ -15,13 +15,18 @@ class AddtoCartApiView(APIView):
     @transaction.atomic
     def post(self, request):
         product_id = request.data.get("product_id")
+        if not product_id:
+            return Response({
+                "message": "Product with this ID does not exust"
+            })
         product = get_object_or_404(Product, id=product_id,is_active=True)
-        quantity = int(request.data.get("quantity"))
+        quantity = int(request.data.get("quantity", 1))
         cart_id = request.session.get("cart_id")
         cart = Cart.objects.filter(id=cart_id).first() if cart_id else None
         if not cart:
             cart = Cart.objects.create()
             request.session["cart_id"] = cart.id
+        
 
         item, created = CartItem.objects.get_or_create(
             cart=cart,
@@ -32,8 +37,7 @@ class AddtoCartApiView(APIView):
             item.quantity += quantity
             item.save()
 
-        product.stock -= quantity
-        product.save()
+        
 
         return Response({"message": "Added to cart"}, status=status.HTTP_200_OK)
 

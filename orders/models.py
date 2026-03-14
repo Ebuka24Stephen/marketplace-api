@@ -3,12 +3,15 @@ from django.contrib.auth.models import User
 from store.models import Product
 from django.utils import timezone
 from django.conf import settings
+from phonenumber_field.modelfields import PhoneNumberField
 
 class Order(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="orders")
     full_name = models.CharField(max_length=70)
     email = models.EmailField()
     address = models.CharField(max_length=150)
+    phone_number = PhoneNumberField(region="NG", blank=True, null=True)
+
     city = models.CharField(max_length=70)
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)

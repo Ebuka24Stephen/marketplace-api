@@ -10,6 +10,11 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db import transaction
 from django.db.models import F
 from rest_framework.exceptions import ValidationError
+from .utils import send_order_confirmation_email
+
+
+
+from django.db import transaction
 
 class OrderCreateView(APIView):
     permission_classes = [IsAuthenticated]
@@ -19,31 +24,43 @@ class OrderCreateView(APIView):
         cart_id = request.session.get("cart_id")
         if not cart_id:
             raise ValidationError({"error": "No active cart"})
+
         cart = get_object_or_404(Cart, id=cart_id)
+
         cart_items = (
-            CartItem.objects.select_related("product").select_for_update().filter(cart=cart)
+            CartItem.objects
+            .select_related("product")
+            .select_for_update()
+            .filter(cart=cart)
         )
+
         if not cart_items.exists():
             raise ValidationError({"error": "Cart is empty"})
+
         serializer = OrderSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
         order = serializer.save(user=request.user)
+
         for item in cart_items:
-            updated = Product.objects.filter(
-                id=item.product_id,
-                stock__gte=item.quantity
-            ).update(stock=F("stock") - item.quantity)
-            if updated == 0:
-                raise ValidationError({"error": f"Not enough stock for {item.product.name}"})
+            if item.product.stock < item.quantity:
+                return Response({"message": "Product is out of stock"})
+
             OrderItem.objects.create(
                 order=order,
                 product=item.product,
-                price=item.product.price,   
+                price=item.product.price,
                 quantity=item.quantity
             )
+
         cart_items.delete()
         cart.delete()
         request.session.pop("cart_id", None)
+
+        # Run celery AFTER commit
+        transaction.on_commit(
+            lambda: send_order_confirmation_email.delay(order.id)
+        )
 
         return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
 
