@@ -1,0 +1,32 @@
+services:
+  web:
+    build:
+      context: .
+    image: marketplace
+    container_name: market_container
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    command: >
+      sh -c "python manage.py migrate && gunicorn marketplace.wsgi:application --bind 0.0.0.0:8000"
+    depends_on:
+      - redis
+      - celery
+
+  redis:
+    image: redis:7
+    container_name: redis_container
+    ports:
+      - "6379:6379"
+
+  celery:
+    build:
+      context: .
+    image: marketplace
+    container_name: celery_container
+    env_file:
+      - .env
+    command: celery -A marketplace worker -l info
+    depends_on:
+      - redis
