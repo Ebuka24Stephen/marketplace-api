@@ -38,7 +38,7 @@ class Product(models.Model):
         ]
 
     def __str__(self):
-        return self.name
+        return f"{self.name} {self.id}"
 
 
 class ProductImage(models.Model):
@@ -47,7 +47,7 @@ class ProductImage(models.Model):
         on_delete=models.CASCADE,
         related_name="images"
     )
-    image = models.ImageField(upload_to='products/%Y/%m/%d/')
+    image = models.ImageField()
     alt_text = models.CharField(max_length=200, blank=True)
     is_primary = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

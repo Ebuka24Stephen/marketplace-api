@@ -1,27 +1,34 @@
+# ----------------------------
+# Django Settings - Cloudinary Fix
+# ----------------------------
+
 import os
 from pathlib import Path
 from datetime import timedelta
-
-BASE_DIR = Path(__file__).resolve().parent.parent
 from decouple import config
 
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY')
-
 DEBUG = config("DEBUG", default=False, cast=bool)
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '54.196.168.247']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
-
-
+# ----------------------------
+# Installed apps
+# ----------------------------
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'django.contrib.staticfiles',
+
+    # Cloudinary
     'cloudinary_storage',
     'cloudinary',
-    'django.contrib.staticfiles',
+
+    # Third-party & project apps
     'rest_framework',
     'users',
     'store',
@@ -29,14 +36,15 @@ INSTALLED_APPS = [
     'carts',
     'orders',
     'payments',
-    "anymail",
-    
+    'anymail',
 ]
 
+# ----------------------------
+# Middleware
+# ----------------------------
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     "whitenoise.middleware.WhiteNoiseMiddleware",
-
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -64,8 +72,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'marketplace.wsgi.application'
 
-
-
+# ----------------------------
+# Database
+# ----------------------------
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -73,67 +82,78 @@ DATABASES = {
     }
 }
 
-
+# ----------------------------
+# Password validation
+# ----------------------------
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-
-
+# ----------------------------
+# Internationalization
+# ----------------------------
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
-
 
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-MEDIA_URL = 'media/'
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+STORAGES = {
+    "default": {  # for media/uploads
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+    },
+    "staticfiles": {  # for static files
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
-
-# File upload settings
-FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
-DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
+MEDIA_URL = '/media/'
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': config('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': config('CLOUDINARY_API_KEY'),
+    'API_SECRET': config('CLOUDINARY_API_SECRET'),
+}
+# Optional: limit upload size
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5MB
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000
 
-AUTH_USER_MODEL='users.User'
+# ----------------------------
+# Custom user model
+# ----------------------------
+AUTH_USER_MODEL = 'users.User'
+
+# ----------------------------
+# Paystack
+# ----------------------------
 PAYSTACK_SECRET_KEY = config("PAYSTACK_SECRET_KEY")
 PAYSTACK_PUBLIC_KEY = config("PAYSTACK_PUBLIC_KEY")
 
-# Cache Configuration - Redis as Primary Cache
+# ----------------------------
+# Cache (Redis)
+# ----------------------------
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
         'LOCATION': 'redis://127.0.0.1:6379/1',
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        }
+        'OPTIONS': {'CLIENT_CLASS': 'django_redis.client.DefaultClient'}
     }
 }
 
+# ----------------------------
+# REST Framework
+# ----------------------------
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
-    "DEFAULT_THROTTLE_CLASSES":[
+    "DEFAULT_THROTTLE_CLASSES": [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle'
     ],
@@ -152,23 +172,15 @@ SIMPLE_JWT = {
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
 }
 
-
-
-#EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# ----------------------------
+# Email
+# ----------------------------
 EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
-RESEND_API_KEY=config("RESEND_API_KEY")
-
+RESEND_API_KEY = config("RESEND_API_KEY")
 DEFAULT_FROM_EMAIL = "onboarding@resend.dev"
 
-
+# ----------------------------
+# Celery
+# ----------------------------
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
-
-
-CLOUDINARY_URL=config('CLOUDINARY_URL')
-
-
-
-
-
-
