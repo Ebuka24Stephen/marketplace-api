@@ -1,35 +1,34 @@
 from rest_framework import serializers
 from .models import Cart, CartItem
 from store.serializers import ProductSerializer
+from rest_framework.response import Response
+from store.models import Product
+class CartSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cart 
+        fields = "__all__"
+
 
 
 class CartItemSerializer(serializers.ModelSerializer):
-    product = ProductSerializer(read_only=True)
-    product_id = serializers.PrimaryKeyRelatedField(
-        write_only=True,
-        queryset=None,
-        source='product'
-    )
-    subtotal = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
-
+    cart = CartSerializer(read_only=True)
+    product = ProductSerializer( read_only=True)
+    product_id = serializers.PrimaryKeyRelatedField(source="product", queryset=Product.objects.filter(is_active=True), write_only=True)
     class Meta:
         model = CartItem
-        fields = ['id', 'product', 'product_id', 'quantity', 'subtotal', 'added_at']
-        read_only_fields = ['id', 'subtotal', 'added_at', 'product']
+        fields = ['cart', 'product', 'quantity', 'product', 'product_id']
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        from store.models import Product
-        self.fields['product_id'].queryset = Product.objects.all()
-
-
-class CartSerializer(serializers.ModelSerializer):
-    items = CartItemSerializer(many=True, read_only=True)
-    total_price = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
-
-    class Meta:
-        model = Cart
-        fields = ['id', 'user', 'items', 'total_price', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'user', 'created_at', 'updated_at', 'total_price']
-
-
+    def validate_quantity(self, value):
+        if value < 1:
+            raise serializers.ValidationError({"error":"Quantity must be a valid integer"})
+        return value
+        
+    def validate(self, data):
+        product = data.get("product")
+        quantity = data.get("quantity")
+        product_id = data.get("product_id")
+        if not product_id:
+            return Response({"message": "ID does not exist"})
+        if product.stock < quantity:
+            return Response({"message":"insufficient stock"})  
+            
