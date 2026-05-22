@@ -8,7 +8,7 @@ from store.models import Product
 from django.db import transaction
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.throttling import AnonRateThrottle
-
+from .serializers import CartItemSerializer
 class AddtoCartApiView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [AnonRateThrottle]
@@ -29,9 +29,7 @@ class AddtoCartApiView(APIView):
  
         if quantity < 1:
             return Response({"error": "Invalid quantity"}, status=status.HTTP_400_BAD_REQUEST)
-        
         cart_id = request.session.get("cart_id")
-        
         cart = Cart.objects.filter(id=cart_id).first() if cart_id else None
         if not cart:
             cart = Cart.objects.create()
@@ -91,24 +89,8 @@ class CartListApiView(APIView):
         if not cart:
             return Response({"message": "Cart not found"}, status=status.HTTP_404_NOT_FOUND)
         items =  CartItem.objects.filter(cart=cart).select_related("product")
-
-        if not items.exists():
-            return Response({"message": "Empty Cart"}, status=status.HTTP_200_OK)
-        cart_total = sum(item.subtotal for item in items)
-        data = [
-            {
-                "product_id": item.product.id,
-                "product": item.product.name,
-                "price": item.product.price,
-                "quantity": item.quantity,
-                "total": item.subtotal,
-                
-            } for item in items]
-        return Response({
-            "items": data,
-            "cart_total": cart_total
-        }, status=status.HTTP_200_OK)
-
+        serializer = CartItemSerializer(items, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class CartDeleteProduct(APIView):

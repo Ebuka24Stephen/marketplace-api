@@ -34,7 +34,7 @@ else:
         },
     }
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '20.251.163.143']
 
 # ----------------------------
 # Installed apps
