@@ -128,6 +128,8 @@ class CreateRefundView(APIView):
     }
         response = requests.post(self.PAYSTACK_REFUND_URL, json=payload, headers=headers)
         if response.status_code in (200, 201):
+            for item in order.items.all():
+                item.product.increment_stock(item.quantity)
             return Response(response.json(), status=status.HTTP_200_OK)
         else:
             refund.delete()

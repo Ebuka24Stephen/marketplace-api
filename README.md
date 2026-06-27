@@ -1,20 +1,21 @@
-A Django REST Framework backend for an e-commerce parts catalog with products, categories, product images, and a session-based shopping cart with payment integration gateway(e.g paystack or stripe). 
+A Django REST Framework backend for an e-commerce marketplace with products, categories, product images, session-based shopping cart, orders, and payment gateway integration (Paystack).
 
 ## Features
 - Product & Category API (list/detail)
 - Product images support (multipart upload)
 - Session-based cart (works for anonymous users)
--  Add to cart, update quantity, delete cart item
--  Stock checks to prevent over-ordering
--  Django Admin for managing store data
+- Add to cart, update quantity, delete cart item
+- Stock checks to prevent over-ordering
+- Stock decremented on order placement, incremented on refund
+- Django Admin for managing store data
 - Redis for caching products
-- Celery for Aynchronous operations
-
+- Celery for asynchronous operations
+- Paystack payment integration
 
 ---
 
 ## Tech Stack
-- Python 
+- Python
 - Django
 - Django REST Framework
 - SQLite (dev) / PostgreSQL (prod-ready)
@@ -22,8 +23,9 @@ A Django REST Framework backend for an e-commerce parts catalog with products, c
 - Celery
 
 ---
+
 ## Project URLs
-- **Project url**: 'https://roadmap.sh/projects/ecommerce-api'
+- **Project url**: `https://roadmap.sh/projects/ecommerce-api`
 - **Local Development**: `http://localhost:8000`
 - **Admin Panel**: `http://localhost:8000/admin`
 - **API Base**: `http://localhost:8000/api`
@@ -116,8 +118,7 @@ http://localhost:8000/api/
     {
       "id": 1,
       "name": "Engine Parts",
-      "slug": "engine-parts",
-      "description": "All engine-related parts"
+      "slug": "engine-parts"
     }
   ]
   ```
@@ -167,15 +168,19 @@ http://localhost:8000/api/
 
 ---
 
-### 3. **Shopping Cart** (`/api/carts/`)
+### 3. **Shopping Cart** (`/api/cart/`)
 
 #### Add Product to Cart
-- **Endpoint**: `POST /api/carts/products/<product_id>/add/`
+- **Endpoint**: `POST /api/cart/add/`
 - **Permission**: Public (Session-based)
 - **Description**: Add a product to cart or increment quantity if already in cart. Includes stock validation.
-- **URL Parameters**:
-  - `product_id`: Product ID
-- **Request Body**: Empty body (POST request)
+- **Request Body**:
+  ```json
+  {
+    "product_id": 101,
+    "quantity": 1
+  }
+  ```
 - **Response** (200 OK):
   ```json
   {
@@ -185,7 +190,7 @@ http://localhost:8000/api/
 - **Error Response** (400 Bad Request):
   ```json
   {
-    "message": "Product is out of stock!"
+    "error": "Insufficient stock"
   }
   ```
 - **Features**:
@@ -194,27 +199,25 @@ http://localhost:8000/api/
   - Prevents adding more items than available stock
 
 #### Get Cart Items
-- **Endpoint**: `GET /api/carts/products/`
+- **Endpoint**: `GET /api/cart/`
 - **Permission**: Public (Session-based)
 - **Description**: Retrieve all items in the current cart
 - **Response** (200 OK):
   ```json
-  {
-    "cart_id": 5,
-    "total_price": "7500.00",
-    "items": [
-      {
+  [
+    {
+      "cart": {
         "id": 1,
-        "product": {
-          "id": 101,
-          "name": "Piston",
-          "price": "2500.00"
-        },
-        "quantity": 3,
-        "subtotal": "7500.00"
-      }
-    ]
-  }
+        "created_at": "..."
+      },
+      "product": {
+        "id": 101,
+        "name": "Piston",
+        "price": "2500.00"
+      },
+      "quantity": 3
+    }
+  ]
   ```
 - **Empty Cart Response** (200 OK):
   ```json
@@ -223,85 +226,86 @@ http://localhost:8000/api/
   }
   ```
 
-#### Update Cart Item Quantity
-- **Endpoint**: `PATCH /api/carts/items/<item_id>/quantity/`
+#### Reduce Cart Item Quantity
+- **Endpoint**: `POST /api/cart/<int:product_id>/quantity/`
 - **Permission**: Public (Session-based)
-- **Description**: Increment quantity of a cart item by 1
+- **Description**: Reduce quantity of a cart item by 1. Removes item if quantity reaches 0.
 - **URL Parameters**:
-  - `item_id`: Cart item ID
-- **Request Body**: Empty body (PATCH request)
+  - `product_id`: Product ID
 - **Response** (200 OK):
   ```json
   {
-    "message": "Quantity updated",
-    "quantity": 4
+    "message": "Quantity reduced",
+    "quantity": 2
   }
   ```
-- **Error Response** (400 Bad Request):
+- **Response** (200 OK, if removed):
   ```json
   {
-    "error": "Cannot increase quantity. Product is out of stock."
+    "message": "Item removed from cart"
   }
   ```
 
 #### Delete Cart Item
-- **Endpoint**: `DELETE /api/carts/items/<item_id>/delete/`
+- **Endpoint**: `DELETE /api/cart/<int:product_id>/delete/`
 - **Permission**: Public (Session-based)
-- **Description**: Remove a specific item from the cart
+- **Description**: Remove a specific product from the cart
 - **URL Parameters**:
-  - `item_id`: Cart item ID
+  - `product_id`: Product ID
 - **Response** (200 OK):
   ```json
   {
-    "deleted": true,
-    "id": 1
+    "message": "Product removed from cart"
   }
   ```
 
 ---
 
-### 4. **Orders** (`/api/orders/`)
+### 4. **Orders** (`/api/order/`)
 
 #### Create Order
-- **Endpoint**: `POST /api/orders/orders/create/`
+- **Endpoint**: `POST /api/order/checkout/`
 - **Permission**: Authenticated (JWT required)
-- **Description**: Create an order from current cart. Updates product stock and clears cart.
+- **Description**: Create an order from current cart. Decrements product stock and clears cart.
 - **Request Body**:
   ```json
   {
-    "shipping_address": "123 Main St, City",
-    "billing_address": "123 Main St, City",
-    "phone": "+234123456789"
+    "full_name": "John Doe",
+    "email": "john@example.com",
+    "address": "123 Main St",
+    "city": "Lagos",
+    "phone_number": "+2348012345678"
   }
   ```
 - **Response** (201 Created):
   ```json
   {
     "id": 1,
-    "user": 5,
+    "full_name": "John Doe",
+    "email": "john@example.com",
+    "address": "123 Main St",
+    "city": "Lagos",
+    "phone_number": "+2348012345678",
     "items": [
       {
         "id": 1,
-        "product": 101,
-        "quantity": 3,
-        "price": "2500.00"
+        "product": {...},
+        "price": "2500.00",
+        "quantity": 3
       }
     ],
-    "total_amount": "7500.00",
-    "status": "pending",
-    "is_paid": false,
-    "created": "2025-01-15T10:30:00Z"
+    "created": "2025-01-15T10:30:00Z",
+    "updated": "2025-01-15T10:30:00Z"
   }
   ```
 - **Features**:
-  - Atomic transaction - updates stock and deletes cart
+  - Atomic transaction - decrements stock and clears cart
   - Validates cart exists and has items
   - Checks product stock availability
   - Clears cart session after order creation
-  - Prevents overselling with optimistic locking
 
 #### List User Orders
-- **Endpoint**: `GET /api/orders/orders/`
+- **Endpoint**: `GET /api/order/`
 - **Permission**: Authenticated (JWT required)
 - **Description**: Get all orders for the authenticated user
 - **Response** (200 OK):
@@ -309,35 +313,35 @@ http://localhost:8000/api/
   [
     {
       "id": 1,
-      "user": 5,
+      "full_name": "John Doe",
+      "email": "john@example.com",
+      "address": "123 Main St",
+      "city": "Lagos",
       "items": [...],
-      "total_amount": "7500.00",
-      "status": "pending",
-      "is_paid": false,
-      "created": "2025-01-15T10:30:00Z"
+      "created": "2025-01-15T10:30:00Z",
+      "updated": "2025-01-15T10:30:00Z"
     }
   ]
   ```
 
 #### Get Order Detail
-- **Endpoint**: `GET /api/orders/orders/<order_id>/`
+- **Endpoint**: `GET /api/order/<int:pk>/`
 - **Permission**: Authenticated (JWT required)
 - **Description**: Get detailed information about a specific order
 - **URL Parameters**:
-  - `order_id`: Order ID
+  - `pk`: Order ID
 - **Response** (200 OK): Single order object with all details
 
 ---
 
-### 5. **Payments** (`/api/payments/`)
+### 5. **Payments** (`/api/payment/`)
 
 #### Initialize Payment
-- **Endpoint**: `POST /api/payments/create/<order_id>/`
+- **Endpoint**: `POST /api/payment/create/<order_id>/`
 - **Permission**: Authenticated (JWT required)
 - **Description**: Initialize a payment using Paystack API. Generates payment reference and authorization URL.
 - **URL Parameters**:
   - `order_id`: Order ID to pay for
-- **Request Body**: Empty body (POST request)
 - **Response** (200 OK):
   ```json
   {
@@ -357,7 +361,7 @@ http://localhost:8000/api/
   - Includes order and user metadata
 
 #### Verify Payment
-- **Endpoint**: `GET /api/payments/verify/?reference=<reference>`
+- **Endpoint**: `GET /api/payment/verify/?reference=<reference>`
 - **Permission**: Authenticated (JWT required)
 - **Description**: Verify payment status with Paystack and update order if successful
 - **Query Parameters**:
@@ -412,36 +416,41 @@ curl -X GET http://localhost:8000/api/categories/engine-parts/products/
 
 #### 4. Add to Cart (Session-based)
 ```bash
-curl -X POST http://localhost:8000/api/carts/products/101/add/ \
-  -H "Cookie: sessionid=abc123..."
+curl -X POST http://localhost:8000/api/cart/add/ \
+  -H "Content-Type: application/json" \
+  -H "Cookie: sessionid=abc123..." \
+  -d '{"product_id": 101, "quantity": 1}'
 ```
 
 #### 5. View Cart
 ```bash
-curl -X GET http://localhost:8000/api/carts/products/ \
+curl -X GET http://localhost:8000/api/cart/ \
   -H "Cookie: sessionid=abc123..."
 ```
 
 #### 6. Create Order
 ```bash
-curl -X POST http://localhost:8000/api/orders/orders/create/ \
+curl -X POST http://localhost:8000/api/order/checkout/ \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{
-    "shipping_address": "123 Main St",
-    "phone": "+234123456789"
+    "full_name": "John Doe",
+    "email": "john@example.com",
+    "address": "123 Main St",
+    "city": "Lagos",
+    "phone_number": "+2348012345678"
   }'
 ```
 
 #### 7. Initialize Payment
 ```bash
-curl -X POST http://localhost:8000/api/payments/create/1/ \
+curl -X POST http://localhost:8000/api/payment/create/1/ \
   -H "Authorization: Bearer <access_token>"
 ```
 
 #### 8. Verify Payment (after Paystack redirect)
 ```bash
-curl -X GET "http://localhost:8000/api/payments/verify/?reference=ORD_1_a1b2c3d4e5" \
+curl -X GET "http://localhost:8000/api/payment/verify/?reference=ORD_1_a1b2c3d4e5" \
   -H "Authorization: Bearer <access_token>"
 ```
 
@@ -457,7 +466,8 @@ curl -X GET "http://localhost:8000/api/payments/verify/?reference=ORD_1_a1b2c3d4
 ### Stock Management
 - Real-time stock checks before adding to cart
 - Atomic transactions prevent overselling
-- Stock decremented when order is created
+- Stock **decremented** when order is placed
+- Stock **incremented** when a refund is processed
 - Prevents adding more than available stock
 
 ### Session-Based Cart
@@ -476,4 +486,4 @@ curl -X GET "http://localhost:8000/api/payments/verify/?reference=ORD_1_a1b2c3d4
 - JWT token-based authentication
 - Transaction atomicity for critical operations
 - Admin-only endpoints for product management
-- Session-based CSRF protection
+- Rate limiting (20 req/day anonymous, 70 req/day authenticated)

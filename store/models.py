@@ -37,6 +37,17 @@ class Product(models.Model):
             models.Index(fields=["price"]),
         ]
 
+    def decrement_stock(self, amount=1):
+        if self.stock >= amount:
+            self.stock -= amount
+            self.save(update_fields=["stock"])
+        else:
+            raise ValueError("Insufficient stock")
+
+    def increment_stock(self, amount=1):
+        self.stock += amount
+        self.save(update_fields=["stock"])
+
     def __str__(self):
         return f"{self.name} {self.id}"
 

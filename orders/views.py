@@ -46,6 +46,8 @@ class OrderCreateView(APIView):
             if item.product.stock < item.quantity:
                 return Response({"message": "Product is out of stock"})
 
+            item.product.decrement_stock(item.quantity)
+
             OrderItem.objects.create(
                 order=order,
                 product=item.product,
